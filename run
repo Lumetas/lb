@@ -1,0 +1,6 @@
+#!/bin/sh
+if [[ -n "$1" ]]; then
+	surf $1
+else
+	surf ~/surf/html/index.html "$@"
+fi

@@ -1,0 +1,218 @@
+define(["jquery", "lib/components/base/modal"], function ($, Modal) {
+  /**
+   * Singleton компонент управления DOM.
+   */
+  return class DOMHandler {
+    constructor() {
+      const instance = APP.constant("emfy_dom_handler_1.0");
+      if (instance) return instance;
+      APP.constant("emfy_dom_handler_1.0", this);
+    }
+
+    /**
+     * Получить элемент DOM
+     * @param {String} selector HTML селектор
+     * @returns {Element}
+     */
+    get(selector) {
+      return document.querySelector(selector);
+    }
+
+    /**
+     * Получить все элементы DOM с указанным селектором
+     * @param {String} selector HTML селектор
+     * @returns {Element[]}
+     */
+    getAll(selector) {
+      return Array.from(document.querySelectorAll(selector));
+    }
+
+    /**
+     * Создает элемент, но не помещает его в DOM
+     * @param {String} tag Тэг HTML (div, span, ...)
+     * @returns {Element}
+     */
+    add(tag) {
+      if (!tag) return;
+
+      return document.createElement(tag);
+    }
+
+    /**
+     * Поиск по древу элемента element элемента с необходимым селектором
+     * @param {Element} element Parent-элемент
+     * @param {String} selector Необходимый селектор
+     * @returns
+     */
+    find(element, selector) {
+      if (!element) return;
+
+      if (!element.querySelector) {
+        element = this.get(element);
+      }
+
+      return element.querySelector(selector);
+    }
+
+    /**
+     * Поиск по древу элемента element всех элементов с необходимым селектором
+     * @param {Element} element Parent-элемент
+     * @param {String} selector Необходимый селектор
+     * @returns
+     */
+    findAll(element, selector) {
+      if (!element) return;
+
+      if (!element.querySelectorAll) {
+        element = this.get(element);
+      }
+
+      return Array.from(element.querySelectorAll(selector));
+    }
+
+    /**
+     * Возвращает следующий элемент от целевого элемента
+     * @param {Element} element
+     * @returns
+     */
+    next(element) {
+      if (!element) return;
+
+      if (element.nextElementSibling === undefined) {
+        element = this.get(element);
+      }
+
+      return element.nextElementSibling;
+    }
+
+    /**
+     * Создает CustomEvent в указанном элементе
+     * @param {Element} element Элемент
+     * @param {String} eventName Название эвента
+     * @param {Object} options Параметры эвента
+     */
+    addEvent(element, eventName, options = {}) {
+      const event = new CustomEvent(eventName, options);
+      element.dispatchEvent(event);
+    }
+
+    /**
+     * Добавляет eventListener к элементу
+     * @param {Element} element Целевой элемент DOM
+     * @param {String} event Тип эвента
+     * @param {Function} fn Функция слушателя
+     */
+    addListener(element, event, fn) {
+      if (!element) return;
+
+      if (!element.addEventListener) {
+        element = this.get(element);
+      }
+
+      element.addEventListener(event, fn);
+    }
+
+    /**
+     * Запускает указанный эвент
+     * @param {*} element Целевой элемент DOM
+     * @param {*} event Тип эвента
+     */
+    trigger(element, event, options = {}) {
+      if (!element) return;
+
+      if (!element.dispatchEvent) {
+        element = this.get(element);
+      }
+
+      element.dispatchEvent(new Event(event, options));
+    }
+
+    /**
+     * Убирает eventListener от элемента
+     * @param {Element} element Целевой элемент DOM
+     * @param {String} event Тип эвента
+     * @param {Function} listener Функция слушателя. Такая же как при добавлении!
+     */
+    removeListener(element, event, listener) {
+      if (!element) return;
+
+      if (!element.addEventListener) {
+        element = this.get(element);
+      }
+
+      element.removeEventListener(event, listener);
+    }
+
+    fromString(string, trim = true) {
+      string = trim ? string.trim() : string;
+
+      const template = this.add("template");
+      template.innerHTML = string;
+      const result = template.content.children;
+
+      if (result.length === 1) return result[0];
+
+      return result;
+    }
+
+    /**
+     * (Обратная совместимость) Получить данные с формы jquery
+     * @param {String} form
+     * @returns
+     */
+    getFormData(form) {
+      if (!form) return;
+
+      const params = decodeURIComponent(form.serialize()).split("&");
+      const result = {};
+
+      $.each(params, function (i, v) {
+        let param = v.split("=");
+        i = param[0].indexOf("[]");
+
+        if (i + 1 !== 0) {
+          param[0] = param[0].slice(0, -2);
+
+          if (result[param[0]] === undefined) result[param[0]] = [];
+
+          result[param[0]].push(param[1]);
+        } else {
+          result[param[0]] = param[1];
+        }
+      });
+
+      return result;
+    }
+
+    /**
+     * (Test) Получить данные с формы
+     * @param {String} form
+     * @returns
+     */
+    getFormDataNew(form) {
+      if (!form) return;
+
+      console.log("getFormData", form);
+
+      const params = decodeURIComponent(form.serialize()).split("&");
+      const result = {};
+
+      params.forEach((param) => {
+        param = param.split("=");
+        const i = param[0].indexOf("[]");
+
+        if (i + 1 !== 0) {
+          param[0] = param[0].slice(0, -2);
+
+          if (result[param[0]] === undefined) result[param[0]] = [];
+
+          result[param[0]].push(param[1]);
+        } else {
+          result[param[0]] = param[1];
+        }
+      });
+
+      return result;
+    }
+  };
+});

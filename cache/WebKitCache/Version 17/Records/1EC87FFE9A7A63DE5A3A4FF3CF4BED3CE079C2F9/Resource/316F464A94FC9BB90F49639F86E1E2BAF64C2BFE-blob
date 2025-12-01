@@ -1,0 +1,655 @@
+define(["jquery", "lib/components/base/modal"], function ($, Modal) {
+  /**
+   * Класс для управления бизнес-логикой виджета проверки обязательных полей
+   * @class
+   */
+  return class App {
+    /**
+     * @constructor
+     * @param {Class} self Контекст виджета this
+     */
+    constructor(self) {
+      this.#self = self;
+      this.#currentWarnings = [];
+      this.#observer = null;
+    }
+
+    #self = undefined;
+    #currentWarnings = [];
+    #unfilledTextMessage = `У вас есть незаполненные поля. Вы не можете выйти пока не заполните все поля.<br>(Нажмите в любом месте для закрытия окна)`;
+    #warningsControlPanel = null;
+    #disabling = false;
+    #active = false;
+    #allFields = [];
+    #firstParsing = true;
+    #waitingModal;
+    #tabMap = new Map();
+    #tabWarnings = [];
+    #observer = null;
+    #hiddenTabsCount = 0;
+    #hiddenTabsWarning = null;
+
+    getTabMap() {
+      return this.#tabMap;
+    }
+
+    /**
+     * Основной метод инициализации обработчиков
+     */
+    init() {
+      this.#unfilledTextMessage =
+        this.#self.i18n("App.unfilledTextMessage") || this.#unfilledTextMessage;
+    }
+
+    waitForElement(selector) {
+      return new Promise((resolve) => {
+        // Сразу проверяем наличие
+        const existingElement = document.querySelector(selector);
+        if (existingElement) {
+          resolve(existingElement);
+          return;
+        }
+
+        // Начинаем наблюдение
+        const observer = new MutationObserver(() => {
+          const element = document.querySelector(selector);
+          if (element) {
+            observer.disconnect();
+            resolve(element);
+          }
+        });
+
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+        });
+      });
+    }
+
+    rerenderTabWarnings() {
+      const { dom } = this.#self;
+      this.#tabWarnings.forEach((warning) => {
+        warning.remove();
+      });
+      this.#tabWarnings = [];
+
+      const tabFieldsMap = this.getTabFieldCount();
+
+      tabFieldsMap.forEach((count, tab) => {
+        const warning = this.#createTabWarningElement(
+          count,
+          tab.classList.contains("card-tabs__item_in-context"),
+        );
+        tab.appendChild(warning);
+        this.#tabWarnings.push(warning);
+      });
+
+      if (this.#hiddenTabsWarning !== null) {
+        dom
+          .get(".card-tabs__dots.js-linked-toggler")
+          .removeAttribute("data-notification");
+        this.#hiddenTabsWarning = null;
+      }
+      if (this.#hiddenTabsCount > 0) {
+        const contextButton = dom.get(".card-tabs__dots.js-linked-toggler");
+        let currentNotification = 0;
+        if (contextButton.getAttribute("data-notification")) {
+          currentNotification = Number(
+            contextButton.getAttribute("data-notification"),
+          );
+        }
+        contextButton.setAttribute(
+          "data-notification",
+          this.#hiddenTabsCount + currentNotification,
+        );
+      }
+    }
+
+    getTabFieldCount() {
+      this.actualizeTabMap();
+      const map = new Map();
+      let oldvalue;
+      this.#tabMap.forEach((value, key) => {
+        if (key.value === "") {
+          oldvalue = map.get(value);
+          if (oldvalue !== undefined) {
+            map.set(value, oldvalue + 1);
+          } else {
+            map.set(value, 1);
+          }
+        }
+      });
+      return map;
+    }
+
+    actualizeTabMap() {
+      this.#hiddenTabsCount = 0;
+      this.#tabMap.clear();
+      this.#allFields.forEach((field) => {
+        this.#tabMap.set(field, this.getTabElement(field));
+      });
+    }
+
+    /**
+     * Получает элемент с именем поля
+     * @param {Element} elem Элемент с именем поля
+     * @returns {Element|null} Элемент вкладки или null
+     */
+    getTabElement(elem) {
+      let [res, hiddenTabsCount] = elem.getTabElement(this.#hiddenTabsCount);
+      this.#hiddenTabsCount = hiddenTabsCount;
+      return res;
+    }
+
+    getMultiSelectValues(fieldId) {
+      // Найти контейнер поля
+      const fieldContainer = document.querySelector(`[data-id="${fieldId}"]`);
+      if (!fieldContainer) return [];
+
+      // Найти все выбранные чекбоксы
+      const selectedCheckboxes = fieldContainer.querySelectorAll(
+        "input.js-item-checkbox:checked",
+      );
+
+      // Вернуть массив значений
+      return Array.from(selectedCheckboxes).map((checkbox) => ({
+        value: checkbox.value,
+        text: checkbox
+          .closest(".checkboxes_dropdown__item")
+          .querySelector(".checkboxes_dropdown__label_title")
+          .textContent.trim(),
+      }));
+    }
+
+    /**
+     * Обрабатывает события карточки сделки
+     */
+    handleCard() {
+      const { dom } = this.#self;
+      const pipelineSelect = dom.get(".pipeline-select");
+
+      const currentPipelineId = Number(
+        AMOCRM.data.current_card.model.attributes["lead[PIPELINE_ID]"],
+      );
+
+      this.#firstParsing = true;
+
+      AMOCRM.data.current_card.model.on("change", (event) => {
+        if (event.changed["lead[STATUS]"] !== undefined) {
+          const newStageId = Number(event.changed["lead[STATUS]"]);
+          this.#validateStageFields(newStageId);
+        }
+      });
+
+      // Первоначальная проверка
+      this.#validateStageFields(
+        Number(AMOCRM.data.current_card.model.attributes["lead[STATUS]"]),
+      );
+    }
+
+    /**
+     * Валидирует поля для указанного этапа
+     * @param {number} stageId ID этапа
+     */
+    #validateStageFields(stageId) {
+      const currentUserId = AMOCRM.data.current_card.user.id;
+      const leadData = AMOCRM.data.current_card.model.attributes;
+
+      const requiredFields = this.#getRequiredFieldsForStageAndUser(
+        stageId,
+        currentUserId,
+      );
+
+      if (requiredFields !== null && requiredFields?.length > 0) {
+        this.#validateRequiredFields(leadData, requiredFields);
+      } else {
+        if (this.#warningsControlPanel) {
+          this.#warningsControlPanel.remove();
+        }
+        this.#disabling = true;
+        this.#clearWarnings();
+      }
+    }
+
+    clearWarnings() {
+      this.#clearWarnings();
+    }
+
+    /**
+     * Получает обязательные поля для этапа и пользователя
+     * @param {number} stageId ID этапа
+     * @param {number} userId ID пользователя
+     * @returns {Array|null} Массив обязательных полей или null
+     */
+    #getRequiredFieldsForStageAndUser(stageId, userId) {
+      const { options } = this.#self;
+
+      try {
+        const widgetOptions = options.get("widget_options")?.options;
+        if (!widgetOptions) return null;
+
+        // Ищем активный канал с пользователем и нужным этапом
+        for (const channelName in widgetOptions.channels) {
+          const channel = widgetOptions.channels[channelName];
+
+          if (
+            channel.active &&
+            channel.managers?.some((manager) => manager.id === userId) &&
+            channel.pipelines?.some((pipeline) => pipeline.stage === stageId)
+          ) {
+            return channel.requiredFields || [];
+          }
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Ошибка при получении обязательных полей:", error);
+        return null;
+      }
+    }
+
+    /**
+     * Проверяет заполненность обязательных полей
+     * @param {Object} leadData Данные сделки
+     * @param {Array} requiredFields Массив обязательных полей
+     */
+    #validateRequiredFields(leadData, requiredFields) {
+      const missingFields = [];
+      let fieldObject;
+      this.#hiddenTabsCount = 0;
+
+      let element;
+      requiredFields.forEach((field) => {
+        if (
+          ![
+            "status_id",
+            "responsible_user_id",
+            "tags",
+            "loss_reason_id",
+            "updated_at",
+          ].includes(field.id)
+        ) {
+          element = this.#findFieldElement(field.id);
+
+          if (!element.filled) {
+            fieldObject = {
+              id: field.id,
+              name: field.name,
+              element: element,
+            };
+            missingFields.push(fieldObject);
+            this.#tabMap.set(
+              fieldObject.element,
+              this.getTabElement(fieldObject.element),
+            );
+          }
+        }
+      });
+
+      if (missingFields.length > 0) {
+        this.#showValidationWarnings(missingFields);
+      } else {
+        this.#clearWarnings();
+      }
+    }
+
+    /**
+     * Получает значение поля из данных сделки
+     * @param {Object} leadData Данные сделки
+     * @param {string} fieldId ID поля
+     * @returns {string} Значение поля
+     */
+    #getFieldValue(leadData, fieldId) {
+      switch (fieldId) {
+        case "name":
+          return leadData["lead[NAME]"] || leadData.name;
+        case "price":
+          return leadData["lead[PRICE]"] || leadData.price;
+        default:
+          return (
+            leadData[`lead[${fieldId}]`] ||
+            leadData[fieldId] ||
+            leadData[`CFV[${fieldId}]`]
+          );
+      }
+    }
+
+    /**
+     * Находит DOM-элемент поля по ID
+     * @param {string} fieldId ID поля
+     * @returns {Element} DOM-элемент поля
+     */
+    #findFieldElement(fieldId) {
+      const { dom, fieldFabric } = this.#self;
+      return fieldFabric.create(fieldId);
+    }
+
+    /**
+     * Показывает предупреждения о незаполненных полях
+     * @param {Array} missingFields Массив незаполненных полей
+     */
+    #showValidationWarnings(missingFields) {
+      this.#active = true;
+      const fieldElements = missingFields
+        .map((field) => field.element)
+        .filter((element) => element && element.value === "");
+
+      this.#renderWarningPanel(fieldElements);
+      this.#setupSaveButtonRestrictions();
+      this.#setupModelChangeListener();
+    }
+
+    /**
+     * Рендерит панель предупреждений
+     * @param {Array} inputElements Массив элементов input
+     */
+    #renderWarningPanel(inputElements) {
+      this.#clearWarnings();
+      this.#active = true;
+      let allFields = [];
+
+      let index = 1;
+      const count = inputElements.length;
+      let warnings = [];
+
+      let i = 1;
+      inputElements.forEach((element) => {
+        // Используем WarningFabric для создания предупреждений
+        const warning = this.#self.warningFabric.create(
+          element,
+          "field",
+          i,
+          inputElements.length,
+        );
+        i++;
+        warning.rerender();
+        allFields.push(element);
+        warnings.push(warning);
+      });
+
+      if (this.#firstParsing) {
+        this.#allFields = allFields;
+        this.#firstParsing = false;
+      }
+
+      if (
+        this.#currentWarnings.length !== warnings.length &&
+        this.updateWarningsControlPanel
+      ) {
+        this.updateWarningsControlPanel(warnings);
+      }
+
+      this.#currentWarnings = warnings;
+
+      setTimeout(() => {
+        this.rerenderTabWarnings();
+      }, 100);
+    }
+
+    /**
+     * Создает элемент предупреждения
+     * @param {string} text Текст предупреждения
+     * @returns {Element} Элемент предупреждения
+     */
+    #createWarningElement(text) {
+      const { dom, options } = this.#self;
+      const warning = dom.add("span");
+
+      warning.classList.add(`${options.get("module")}-warning`);
+      warning.innerText = text;
+
+      return warning;
+    }
+
+    #createTabWarningElement(count, inContext = false) {
+      const { options } = this.#self;
+      const warning = this.#createWarningElement(`${count}`);
+      if (inContext) {
+        warning.classList.add(`${options.get("module")}-warning-context`);
+      }
+      warning.classList.add("card-tabs__notification_item");
+      return warning;
+    }
+
+    /**
+     * Настраивает ограничения для кнопки сохранения
+     */
+    #setupSaveButtonRestrictions() {
+      const { dom } = this.#self;
+      const saveButton = AMOCRM.data.current_card.$save_btn[0];
+
+      if (!saveButton) return;
+
+      // Блокируем кнопку сохранения
+      saveButton.disabled = true;
+      saveButton.classList.add("button-input-disabled");
+
+      // Настраиваем наблюдатель за изменениями кнопки
+      if (this.#observer) {
+        this.#observer.disconnect();
+      }
+      if (this.#warningsControlPanel) {
+        this.#warningsControlPanel.remove();
+      }
+
+      this.#observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (
+            mutation.type === "attributes" &&
+            mutation.attributeName === "class" &&
+            !mutation.target.classList.contains("button-input-disabled") &&
+            this.#currentWarnings.length > 0
+          ) {
+            mutation.target.disabled = true;
+            mutation.target.classList.add("button-input-disabled");
+          }
+        });
+      });
+
+      this.#observer.observe(saveButton, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+
+      this.#waitingModal = this.waitForElement(".modal-body .js-modal-accept");
+
+      const handlerModal = () => {
+        if (!this.#active) return;
+        const modalBody = document.querySelector(
+          ".modal.modal-leave-confirm .modal-body",
+        );
+        const clickSpace = document.querySelector(
+          ".modal.modal-list.modal-leave-confirm.js-modal-confirm .modal-scroller.custom-scroll",
+        );
+        ["click"].forEach((eventType) => {
+          clickSpace.addEventListener(
+            eventType,
+            (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              clickSpace.parentNode.remove();
+              return false;
+            },
+            true,
+          );
+        });
+
+        modalBody.innerHTML = this.#unfilledTextMessage;
+        this.#waitingModal = this.waitForElement(
+          ".modal-body .js-modal-accept",
+        );
+        this.#waitingModal.then(handlerModal);
+      };
+
+      this.#waitingModal.then(handlerModal);
+
+      this.#disabling = false;
+      dom.removeListener(
+        AMOCRM.data.current_card.$save_btn_container[0].querySelector(
+          ".button-cancel",
+        ),
+        "click",
+        this.cancel.bind(this),
+      );
+      dom.addListener(
+        AMOCRM.data.current_card.$save_btn_container[0].querySelector(
+          ".button-cancel",
+        ),
+        "click",
+        this.cancel.bind(this),
+      );
+      APP.data.current_card.$save_btn_container[0].appendChild(
+        this.createWarningLister(),
+      );
+    }
+
+    cancel() {
+      this.#disabling = true;
+      this.#clearWarnings(true);
+    }
+
+    /**
+     * Настраивает слушатель изменений модели
+     */
+    #setupModelChangeListener() {
+      AMOCRM.data.current_card.model.on("change", (event) => {
+        this.#refreshValidationState();
+      });
+    }
+
+    /**
+     * Обновляет состояние валидации
+     */
+    #refreshValidationState() {
+      if (this.#disabling) return;
+      const currentInputs = this.#allFields.filter(
+        (input) => input && input.value === "",
+      );
+      this.#clearWarnings();
+
+      if (currentInputs.length === 0) {
+        this.#clearWarnings();
+        this.#enableSaveButton();
+      } else {
+        this.#renderWarningPanel(currentInputs);
+      }
+      setTimeout(() => {
+        this.rerenderTabWarnings();
+      }, 100);
+    }
+
+    createWarningLister() {
+      const { dom, options } = this.#self;
+      let index = 1;
+      let currentWarning = this.#currentWarnings[0];
+      let currentNumber = dom.add("span");
+
+      const previousButton = dom.add("button");
+      previousButton.className = `emfy-${options.get("module")}-warning-button previous`;
+
+      previousButton.innerText = "<";
+      previousButton.addEventListener("click", () => {
+        [index, currentWarning] = this.#previousWarning(index);
+        currentNumber.innerText = `${index} / ${this.#currentWarnings.length}`;
+        currentWarning.show();
+      });
+
+      const nextButton = dom.add("button");
+      nextButton.className = `emfy-${options.get("module")}-warning-button next`;
+
+      nextButton.innerText = ">";
+      nextButton.addEventListener("click", () => {
+        [index, currentWarning] = this.#nextWarning(index);
+        currentNumber.innerText = `${index} / ${this.#currentWarnings.length}`;
+        currentWarning.show();
+      });
+
+      currentNumber.className = `emfy-${options.get("module")}-warning-current-number`;
+      currentNumber.innerText = `${index} / ${this.#currentWarnings.length}`;
+      currentNumber.addEventListener("click", () => {
+        currentWarning = this.#currentWarnings[index - 1];
+        currentWarning.show();
+      });
+
+      const warningsControlPanel = dom.add("div");
+      warningsControlPanel.className = `emfy-${options.get("module")}-warnings-control-panel button-input`;
+      warningsControlPanel.appendChild(previousButton);
+      warningsControlPanel.appendChild(currentNumber);
+      warningsControlPanel.appendChild(nextButton);
+
+      this.#warningsControlPanel = warningsControlPanel;
+
+      this.updateWarningsControlPanel = (warnings) => {
+        if (index >= warnings.length) {
+          index = warnings.length;
+        }
+
+        currentNumber.innerText = `${index} / ${warnings.length}`;
+      };
+
+      return warningsControlPanel;
+    }
+
+    #previousWarning(index) {
+      index = Number(index) || 0;
+      index -= 2;
+
+      if (index < 0) {
+        index = this.#currentWarnings.length - 1;
+      }
+      return [index + 1, this.#currentWarnings[index]];
+    }
+
+    #nextWarning(index) {
+      index = Number(index) || 0;
+      if (index >= this.#currentWarnings.length) index = 0;
+
+      return [index + 1, this.#currentWarnings[index]];
+    }
+
+    /**
+     * Включает кнопку сохранения
+     */
+    #enableSaveButton() {
+      const saveButton = AMOCRM.data.current_card.$save_btn[0];
+
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.classList.remove("button-input-disabled");
+      }
+    }
+
+    exec() {
+      this.#clearWarnings();
+    }
+
+    /**
+     * Очищает все предупреждения
+     */
+    #clearWarnings(log = false) {
+      this.#active = false;
+      this.#currentWarnings.forEach((warning) => {
+        warning.remove();
+      });
+      this.#tabWarnings.forEach((warning) => {
+        warning.remove();
+      });
+      this.#currentWarnings = [];
+
+      if (this.#currentWarnings.length === 0) {
+        this.#enableSaveButton();
+      }
+    }
+
+    async #clearAllWarnings() {
+      const { options } = this.#self;
+
+      document
+        .querySelectorAll(`.${options.get("module")}-warning`)
+        .forEach((warning) => {
+          warning.remove();
+        });
+    }
+  };
+});

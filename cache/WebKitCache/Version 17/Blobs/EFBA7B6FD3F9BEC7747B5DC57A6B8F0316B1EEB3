@@ -1,0 +1,148 @@
+define(["jquery", "lib/components/base/modal"], function ($, Modal) {
+  return class WarningFabric {
+    #self;
+    constructor(self) {
+      this.#self = self;
+    }
+
+    create(field, type = "field", index, total) {
+      if (type === "field" || type === "tab") {
+        return new this.#warningInstance(this.#self, field, type, index, total);
+      }
+    }
+
+    #warningInstance = class {
+      #self;
+      #field;
+      #label;
+      #type;
+      #index;
+      #total;
+      #element = null;
+
+      constructor(self, field, type, index, total) {
+        this.#self = self;
+        this.#field = field;
+        this.#label = field.label;
+
+        this.#index = index;
+        this.#total = total;
+
+        this.#type = type;
+      }
+
+      /**
+       * Показывает предупреждение и скроллит к нему
+       */
+      show() {
+        if (this.#type === "field" && this.#field) {
+          // Получаем вкладку для поля
+          const [tabElement] = this.#field.getTabElement(0);
+
+          if (tabElement) {
+            // Кликаем по вкладке чтобы переключиться
+            if (tabElement.classList.contains("js-card-tab")) {
+              tabElement.click();
+            } else if (
+              tabElement.id &&
+              tabElement.id.startsWith("linked_context_")
+            ) {
+              // Для контекстных вкладок ищем соответствующий элемент
+              const tabId = tabElement.id.replace("linked_context_", "");
+              const mainTab = document.querySelector(
+                `.js-card-tab[data-id="${tabId}"]`,
+              );
+              if (mainTab) {
+                mainTab.click();
+              }
+            }
+
+            // Ждем переключения вкладки и скроллим к полю
+            setTimeout(() => {
+              this.#scrollToField();
+            }, 300);
+          }
+        }
+      }
+
+      /**
+       * Скроллит страницу к полю с предупреждением
+       */
+      #scrollToField() {
+        if (!this.#field || !this.#element) return;
+
+        const fieldElement = this.#field.element;
+        if (fieldElement) {
+          fieldElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+
+          this.#field.highlight();
+        }
+      }
+
+      /**
+       * Перерендеривает предупреждение
+       */
+      rerender() {
+        this.remove();
+
+        if (this.#type === "field" && this.#field) {
+          const warning = this.#createFieldWarningElement();
+          this.#field.after(warning);
+          this.#element = warning;
+          this.#label.classList.add(
+            `emfy-${this.#self.options.get("module")}-validation-not-valid`,
+          );
+        }
+      }
+
+      /**
+       * Создает элемент предупреждения для поля
+       */
+      #createFieldWarningElement() {
+        const { dom, options } = this.#self;
+        const warning = dom.add("div");
+
+        warning.classList.add(
+          "js-validation-tip",
+          "validation-tip",
+          "showed",
+          `${options.get("module")}-warning`,
+        );
+        warning.innerText = `${this.#index} / ${this.#total}`;
+        warning.title =
+          this.#self.i18n("warning.title") || "Обязательное поле не заполнено";
+
+        // Добавляем обработчик клика для быстрого перехода
+        warning.style.cursor = "pointer";
+        dom.addListener(warning, "click", () => {
+          this.show();
+        });
+
+        return warning;
+      }
+
+      /**
+       * Удаляет предупреждение
+       */
+      remove() {
+        this.#label.classList.remove(
+          `emfy-${this.#self.options.get("module")}-validation-not-valid`,
+        );
+        if (this.#element) {
+          this.#element.remove();
+          this.#element = null;
+        }
+      }
+
+      /**
+       * Проверяет, существует ли предупреждение
+       */
+      exists() {
+        return this.#element !== null && document.body.contains(this.#element);
+      }
+    };
+  };
+});
