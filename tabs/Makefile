@@ -47,15 +47,15 @@ dist: clean
 
 install: all
 	# installing executable files.
-	mkdir -p "${DESTDIR}${PREFIX}/bin"
+	# mkdir -p "${DESTDIR}${PREFIX}/bin"
 	# cp -f ${BIN} "${DESTDIR}${PREFIX}/bin"
-	for f in ${BIN}; do chmod 755 "${DESTDIR}${PREFIX}/bin/$$f"; done
+	# for f in ${BIN}; do chmod 755 "${DESTDIR}${PREFIX}/bin/$$f"; done
 	# installing doc files.
 	mkdir -p "${DESTDIR}${DOCPREFIX}"
-	cp -f README "${DESTDIR}${DOCPREFIX}"
+	# cp -f README "${DESTDIR}${DOCPREFIX}"
 	# installing manual pages for general commands: section 1.
-	mkdir -p "${DESTDIR}${MANPREFIX}/man1"
-	for m in ${MAN1}; do sed "s/VERSION/${VERSION}/g" < $$m > "${DESTDIR}${MANPREFIX}/man1/$$m"; done
+	# mkdir -p "${DESTDIR}${MANPREFIX}/man1"
+	# for m in ${MAN1}; do sed "s/VERSION/${VERSION}/g" < $$m > "${DESTDIR}${MANPREFIX}/man1/$$m"; done
 
 uninstall:
 	# removing executable files.

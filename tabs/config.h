@@ -2,8 +2,8 @@
 
 /* appearance */
 static const char font[]        = "monospace:size=12";
-static const char* normbgcolor  = "#000000";  /* чисто чёрный фон */
-static const char* normfgcolor  = "#e0e0e0";  /* светло-серый текст */
+static const char* normbgcolor  = "#ffffff";  /* чисто чёрный фон */
+static const char* normfgcolor  = "#000000";  /* светло-серый текст */
 static const char* selbgcolor   = "#000000";  /* чисто белый для выбранного */
 static const char* selfgcolor   = "#ffffff";  /* чёрный текст на белом фоне */
 static const char* urgbgcolor   = "#2a2a2a";  /* тёмно-серый для срочных */
