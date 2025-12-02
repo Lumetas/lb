@@ -1,6 +1,7 @@
 #!/bin/sh
 if [[ -n "$1" ]]; then
-	surf $1
+	lb $1
 else
-	surf ~/surf/html/index.html "$@"
+	# surf ~/surf/html/index.html "$@"
+	./tabs/tabbed lb -e
 fi

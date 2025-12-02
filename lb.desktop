@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=LB Browser
+Comment=Minimal Black and White Browser Homepage
+Exec=sh -c "cd ~/lb && ./run"
+Icon=web-browser
+Terminal=false
+Categories=Network;WebBrowser;
+StartupWMClass=lb-browser

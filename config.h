@@ -1,12 +1,18 @@
 /* modifier 0 means no modifier */
 static int surfuseragent    = 1;  /* Append Surf version to default WebKit user agent */
 static char *fulluseragent  = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"; /* Or override the whole user agent string */
-static char *scriptfile     = "~/surf/js/build.js";
-static char *styledir       = "~/surf/css/";
-static char *certdir        = "~/surf/certificates/";
-static char *cachedir       = "~/surf/cache/";
-static char *cookiefile     = "~/surf/cookies.txt";
-static char *bookmarkdir    = "~/surf/bookmarks/"; /* Добавлено: директория для закладок */
+static char *scriptfile     = "~/lb/js/build.js";
+static char *styledir       = "~/lb/css/";
+static char *certdir        = "~/lb/certificates/";
+static char *cachedir       = "~/lb/cache/";
+static char *cookiefile     = "~/lb/cookies.txt";
+static char *bookmarkdir    = "~/lb/bookmarks/"; 
+static char *historyfile    = "~/lb/history.txt";
+#define DEFAULT_URL "~/lb/html/index.html";
+
+/* Чёрно-белая тема для dmenu и утилит */
+#define DWMENU_BW "-nf white -nb black -sf black -sb white"
+#define NOTIFY_BW "-t 5000 -h int:value:42"
 
 /* Webkit default features */
 /* Highest priority value will be used.
@@ -28,7 +34,7 @@ static Parameter defconfig[ParameterLast] = {
 	[Ephemeral]           =       { { .i = 0 },     },
 	[FileURLsCrossAccess] =       { { .i = 0 },     },
 	[FontSize]            =       { { .i = 12 },    },
-	[Geolocation]         =       { { .i = 0 },     },
+	[Geolocation]         =       { { .i = 1 },     },
 	[HideBackground]      =       { { .i = 0 },     },
 	[Inspector]           =       { { .i = 1 },     },
 	[JavaScript]          =       { { .i = 1 },     },
@@ -41,12 +47,12 @@ static Parameter defconfig[ParameterLast] = {
 	[ScrollBars]          =       { { .i = 1 },     },
 	[ShowIndicators]      =       { { .i = 1 },     },
 	[SiteQuirks]          =       { { .i = 1 },     },
-	[SmoothScrolling]     =       { { .i = 0 },     },
+	[SmoothScrolling]     =       { { .i = 1 },     },
 	[SpellChecking]       =       { { .i = 0 },     },
 	[SpellLanguages]      =       { { .v = ((char *[]){ "en_US", NULL }) }, },
 	[StrictTLS]           =       { { .i = 1 },     },
 	[Style]               =       { { .i = 1 },     },
-	[WebGL]               =       { { .i = 0 },     },
+	[WebGL]               =       { { .i = 1 },     },
 	[ZoomLevel]           =       { { .f = 1.0 },   },
 };
 
@@ -71,7 +77,7 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
              "prop=\"$(printf '%b' \"$(xprop -id $1 "r" " \
              "| sed -e 's/^"r"(UTF8_STRING) = \"\\(.*\\)\"/\\1/' " \
              "      -e 's/\\\\\\(.\\)/\\1/g')\" " \
-             "| dmenu -p '"p"' -w $1)\" " \
+             "| dmenu " DWMENU_BW " -p '"p"' -w $1)\" " \
              "&& xprop -id $1 -f "s" 8u -set "s" \"$prop\"", \
              "surf-setprop", winid, NULL \
         } \
@@ -84,6 +90,13 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
              " -e \"$3\" \"$4\"; read", \
              "surf-download", useragent, cookiefile, r, u, NULL \
         } \
+}
+
+#define NEW_TAB { \
+    .v = (const char *[]){ "/bin/sh", "-c", \
+         "surf -e $(cat ~/lb/xid) ~/lb/html/index.html", \
+         NULL \
+    } \
 }
 
 /* PLUMB(URI) */
@@ -106,12 +119,12 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
 /* BOOKMARK_ADD - добавить текущую страницу в закладки */
 #define BOOKMARK_ADD { \
         .v = (const char *[]){ "/bin/sh", "-c", \
-             "mkdir -p ~/surf/bookmarks && " \
-             "name=\"$(echo '' | dmenu -p 'Bookmark name:' -w $1)\" && " \
+             "mkdir -p ~/lb/bookmarks && " \
+             "name=\"$(echo '' | dmenu " DWMENU_BW " -p 'Bookmark name:' -w $1)\" && " \
              "if [ -n \"$name\" ]; then " \
              "  url=\"$(xprop -id $1 _SURF_URI | sed 's/^_SURF_URI(UTF8_STRING) = \"\\(.*\\)\"/\\1/')\" && " \
-             "  echo \"$url\" > ~/surf/bookmarks/\"$name\" && " \
-             "  notify-send \"Bookmark added\" \"$name: $url\"; " \
+             "  echo \"$url\" > ~/lb/bookmarks/\"$name\" && " \
+             "  notify-send " NOTIFY_BW " \"Bookmark added\" \"$name: $url\"; " \
              "fi", \
              "surf-bookmark-add", winid, NULL \
         } \
@@ -120,10 +133,10 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
 /* BOOKMARK_OPEN - выбрать и открыть закладку */
 #define BOOKMARK_OPEN { \
         .v = (const char *[]){ "/bin/sh", "-c", \
-             "mkdir -p ~/surf/bookmarks && " \
-             "file=\"$(ls ~/surf/bookmarks/ | dmenu -p 'Open bookmark:' -w $1 -l 10)\" && " \
+             "mkdir -p ~/lb/bookmarks && " \
+             "file=\"$(ls ~/lb/bookmarks/ | dmenu " DWMENU_BW " -p 'Open bookmark:' -w $1 -l 10)\" && " \
              "if [ -n \"$file\" ]; then " \
-             "  url=\"$(cat ~/surf/bookmarks/\"$file\")\" && " \
+             "  url=\"$(cat ~/lb/bookmarks/\"$file\")\" && " \
              "  xprop -id $1 -f _SURF_GO 8u -set _SURF_GO \"$url\"; " \
              "fi", \
              "surf-bookmark-open", winid, NULL \
@@ -133,13 +146,61 @@ static WebKitFindOptions findopts = WEBKIT_FIND_OPTIONS_CASE_INSENSITIVE |
 /* BOOKMARK_DELETE - выбрать и удалить закладку */
 #define BOOKMARK_DELETE { \
         .v = (const char *[]){ "/bin/sh", "-c", \
-             "mkdir -p ~/surf/bookmarks && " \
-             "file=\"$(ls ~/surf/bookmarks/ | dmenu -p 'Delete bookmark:' -w $1 -l 10)\" && " \
+             "mkdir -p ~/lb/bookmarks && " \
+             "file=\"$(ls ~/lb/bookmarks/ | dmenu " DWMENU_BW " -p 'Delete bookmark:' -w $1 -l 10)\" && " \
              "if [ -n \"$file\" ]; then " \
-             "  rm ~/surf/bookmarks/\"$file\" && " \
-             "  notify-send \"Bookmark deleted\" \"$file\"; " \
+             "  rm ~/lb/bookmarks/\"$file\" && " \
+             "  notify-send " NOTIFY_BW " \"Bookmark deleted\" \"$file\"; " \
              "fi", \
              "surf-bookmark-delete", winid, NULL \
+        } \
+}
+
+/* Упрощённый SMART_GO с детектированием URL и историей */
+#define SMART_GO { \
+        .v = (const char *[]){ "/bin/sh", "-c", \
+             "mkdir -p ~/lb && " \
+             "touch ~/lb/history.txt && " \
+             "input=\"$(echo '~/lb/html/index.html' | dmenu " DWMENU_BW " -p 'Go or search:' -w $1)\"; " \
+             "if [ -n \"$input\" ]; then " \
+             "  url=\"$input\"; " \
+             "  if echo \"$url\" | grep -q '^[a-zA-Z][a-zA-Z0-9+.-]*://'; then " \
+             "    final_url=\"$url\"; " \
+             "  elif echo \"$url\" | grep -qi '^localhost'; then " \
+             "    final_url=\"http://$url\"; " \
+             "  elif echo \"$url\" | grep -qiE '^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\\.(com|org|net|edu|gov|mil|io|co|uk|de|fr|ru|ua|jp|cn|br|au|in|info|biz|mobi|name|tv|me|us|ca|es|it|nl|pl|se|no|fi|dk|ch|at|be|cz|gr|hu|pt|ro|sk|tr|eu|asia|app|dev|site|online|xyz|tech|store|shop|blog|club|live|studio|news|wiki|space|work|digital|cloud|media|world|today|center|plus|expert|guru|agency|network|solutions|services|systems|company|group)(/|$|:[0-9])'; then " \
+             "    final_url=\"http://$url\"; " \
+             "  else " \
+             "    final_url=\"https://www.google.com/search?q=$(echo \"$url\" | sed 's/ /+/g')\"; " \
+             "  fi; " \
+             "  echo \"$final_url\" >> ~/lb/history.txt; " \
+             "  tail -1000 ~/lb/history.txt > ~/lb/history.tmp && " \
+             "  mv ~/lb/history.tmp ~/lb/history.txt; " \
+             "  xprop -id $1 -f _SURF_GO 8u -set _SURF_GO \"$final_url\"; " \
+             "fi", \
+             "surf-smart-go", winid, NULL \
+        } \
+}
+
+/* Просмотр истории */
+#define SHOW_HISTORY { \
+        .v = (const char *[]){ "/bin/sh", "-c", \
+             "mkdir -p ~/lb && " \
+             "touch ~/lb/history.txt && " \
+             "url=\"$(tac ~/lb/history.txt | dmenu " DWMENU_BW " -p 'History:' -w $1 -l 20)\"; " \
+             "if [ -n \"$url\" ]; then " \
+             "  xprop -id $1 -f _SURF_GO 8u -set _SURF_GO \"$url\"; " \
+             "fi", \
+             "surf-show-history", winid, NULL \
+        } \
+}
+
+/* Очистить историю */
+#define CLEAR_HISTORY { \
+        .v = (const char *[]){ "/bin/sh", "-c", \
+             "echo '' > ~/lb/history.txt && " \
+             "notify-send " NOTIFY_BW " \"History cleared\" \"All history entries have been removed\"", \
+             "surf-clear-history", NULL \
         } \
 }
 
@@ -171,25 +232,15 @@ static SiteSpecific certs[] = {
  */
 static Key keys[] = {
 	/* modifier              keyval          function    arg */
-	// { MODKEY,                GDK_KEY_g,      spawn,      SETPROP("_SURF_URI", "_SURF_GO", PROMPT_GO) },
-	{ MODKEY, GDK_KEY_g, spawn, { .v = (const char *[]){ "/bin/sh", "-c", 
-    "input=\"$(printf '' | dmenu -p 'Go or search:' -w $1)\"; "
-    "if [ -n \"$input\" ]; then "
-    "  if echo \"$input\" | grep -q '^[a-zA-Z]*://'; then "
-    "    xprop -id $1 -f _SURF_GO 8u -set _SURF_GO \"$input\"; "
-    "  else "
-    "    query=$(echo \"$input\" | sed 's/ /+/g'); "
-    "    xprop -id $1 -f _SURF_GO 8u -set _SURF_GO \"https://www.google.com/search?q=$query\"; "
-    "  fi; "
-    "fi", 
-    "surf-go", 
-    winid, 
-    NULL } } },
+	{ MODKEY,                GDK_KEY_g,      spawn,      SMART_GO },
+	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_g,      spawn,      SHOW_HISTORY },
+	// { MODKEY|GDK_SHIFT_MASK, GDK_KEY_h,      spawn,      CLEAR_HISTORY },
+	
 	{ MODKEY,                GDK_KEY_f,      spawn,      SETPROP("_SURF_FIND", "_SURF_FIND", PROMPT_FIND) },
 	{ MODKEY,                GDK_KEY_slash,  spawn,      SETPROP("_SURF_FIND", "_SURF_FIND", PROMPT_FIND) },
 
 	{ 0,                     GDK_KEY_Escape, stop,       { 0 } },
-	{ MODKEY,                GDK_KEY_c,      stop,       { 0 } },
+	{ MODKEY,                GDK_KEY_x,      stop,       { 0 } },
 
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_r,      reload,     { .i = 1 } },
 	{ MODKEY,                GDK_KEY_r,      reload,     { .i = 0 } },
@@ -201,7 +252,7 @@ static Key keys[] = {
 	{ MODKEY,                GDK_KEY_j,      scrollv,    { .i = +10 } },
 	{ MODKEY,                GDK_KEY_k,      scrollv,    { .i = -10 } },
 	{ MODKEY,                GDK_KEY_space,  scrollv,    { .i = +50 } },
-	// { MODKEY,                GDK_KEY_b,      scrollv,    { .i = -50 } },
+	{ MODKEY,                GDK_KEY_b,      scrollv,    { .i = -50 } },
 	{ MODKEY,                GDK_KEY_i,      scrollh,    { .i = +10 } },
 	{ MODKEY,                GDK_KEY_u,      scrollh,    { .i = -10 } },
 
@@ -217,7 +268,7 @@ static Key keys[] = {
 	{ MODKEY,                GDK_KEY_plus,   zoom,       { .i = +1 } },
 
 	{ MODKEY,                GDK_KEY_p,      clipboard,  { .i = 1 } },
-	{ MODKEY,                GDK_KEY_y,      clipboard,  { .i = 0 } },
+	{ MODKEY,                GDK_KEY_c,      clipboard,  { .i = 0 } },
 
 	{ MODKEY,                GDK_KEY_n,      find,       { .i = +1 } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_n,      find,       { .i = -1 } },
@@ -230,10 +281,10 @@ static Key keys[] = {
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_o,      toggleinspector, { 0 } },
 
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_c,      toggle,     { .i = CaretBrowsing } },
-	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_g,      toggle,     { .i = Geolocation } },
+	// { MODKEY|GDK_SHIFT_MASK, GDK_KEY_g,      toggle,     { .i = Geolocation } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_s,      toggle,     { .i = JavaScript } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_i,      toggle,     { .i = LoadImages } },
-	// { MODKEY|GDK_SHIFT_MASK, GDK_KEY_b,      toggle,     { .i = ScrollBars } },
+	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_v,      toggle,     { .i = ScrollBars } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_t,      toggle,     { .i = StrictTLS } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_m,      toggle,     { .i = Style } },
 	{ MODKEY|GDK_SHIFT_MASK, GDK_KEY_d,      toggle,     { .i = DarkMode } },

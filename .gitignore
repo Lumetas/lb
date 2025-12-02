@@ -1,3 +1,6 @@
 cookies.txt
-# cache
-# certificates
+cache/*
+certificates
+xid
+bookmarks
+history.txt

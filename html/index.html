@@ -1,10 +1,993 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title></title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Tab</title>
+    <style>
+        /* Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Чёрно-белая палитра */
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            --gray-10: #0a0a0a;
+            --gray-20: #1a1a1a;
+            --gray-30: #333333;
+            --gray-40: #666666;
+            --gray-50: #999999;
+            --gray-90: #e6e6e6;
+            --gray-95: #f2f2f2;
+        }
+
+        body {
+            background-color: var(--white);
+            color: var(--black);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        /* Тёмная тема */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: var(--black);
+                color: var(--white);
+            }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: flex-end;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--gray-90);
+            background: var(--white);
+        }
+
+        body.dark-mode .header {
+            background: var(--black);
+            border-bottom-color: var(--gray-30);
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--gray-90);
+            padding: 8px 16px;
+            cursor: pointer;
+            color: var(--black);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+        }
+
+        body.dark-mode .theme-toggle {
+            border-color: var(--gray-30);
+            color: var(--white);
+        }
+
+        .theme-toggle:hover {
+            background: var(--gray-95);
+        }
+
+        body.dark-mode .theme-toggle:hover {
+            background: var(--gray-20);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Logo */
+        .logo {
+            font-size: 64px;
+            font-weight: 300;
+            letter-spacing: -3px;
+            margin-bottom: 60px;
+            color: var(--black);
+            text-align: center;
+        }
+
+        body.dark-mode .logo {
+            color: var(--white);
+        }
+
+        /* Search Box - Квадратная, как в старых браузерах */
+        .search-container {
+            width: 100%;
+            max-width: 680px;
+            margin-bottom: 80px;
+            position: relative;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 18px 24px;
+            font-size: 16px;
+            border: 2px solid var(--black);
+            background: var(--white);
+            color: var(--black);
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        body.dark-mode .search-box {
+            border-color: var(--white);
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .search-box:focus {
+            border-width: 3px;
+            padding: 17px 23px;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-40);
+            pointer-events: none;
+        }
+
+        body.dark-mode .search-icon {
+            color: var(--gray-50);
+        }
+
+        /* Quick Links - Сетка без скруглений */
+        .quick-links {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--gray-40);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        body.dark-mode .section-title {
+            color: var(--gray-50);
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 24px;
+            margin-bottom: 60px;
+        }
+
+        .link-item {
+            border: 1px solid var(--gray-90);
+            background: var(--white);
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            position: relative;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.dark-mode .link-item {
+            border-color: var(--gray-30);
+            background: var(--black);
+        }
+
+        .link-item:hover {
+            border-color: var(--black);
+            background: var(--gray-95);
+        }
+
+        body.dark-mode .link-item:hover {
+            border-color: var(--white);
+            background: var(--gray-20);
+        }
+
+        .link-icon {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: var(--black);
+        }
+
+        body.dark-mode .link-icon {
+            color: var(--white);
+        }
+
+        .link-name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: var(--black);
+        }
+
+        body.dark-mode .link-name {
+            color: var(--white);
+        }
+
+        .link-url {
+            font-size: 12px;
+            color: var(--gray-40);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        body.dark-mode .link-url {
+            color: var(--gray-50);
+        }
+
+        .link-actions {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .link-item:hover .link-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--gray-90);
+            background: var(--white);
+            color: var(--black);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.15s ease;
+        }
+
+        body.dark-mode .action-btn {
+            border-color: var(--gray-30);
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .action-btn:hover {
+            background: var(--black);
+            color: var(--white);
+            border-color: var(--black);
+        }
+
+        body.dark-mode .action-btn:hover {
+            background: var(--white);
+            color: var(--black);
+            border-color: var(--white);
+        }
+
+        .delete-btn:hover {
+            background: #d93025;
+            border-color: #d93025;
+            color: var(--white);
+        }
+
+        /* Add Link Form - Квадратные поля */
+        .add-link-form {
+            border: 1px solid var(--gray-90);
+            background: var(--white);
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        body.dark-mode .add-link-form {
+            border-color: var(--gray-30);
+            background: var(--black);
+        }
+
+        .form-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 24px;
+            color: var(--black);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        body.dark-mode .form-title {
+            color: var(--white);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid var(--gray-90);
+            background: var(--white);
+            color: var(--black);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+
+        body.dark-mode .form-input {
+            border-color: var(--gray-30);
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .form-input:focus {
+            border-width: 2px;
+            border-color: var(--black);
+            padding: 13px 15px;
+        }
+
+        body.dark-mode .form-input:focus {
+            border-color: var(--white);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: 1px solid var(--black);
+            background: var(--white);
+            color: var(--black);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        body.dark-mode .btn {
+            border-color: var(--white);
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .btn:hover {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        body.dark-mode .btn:hover {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .btn-secondary {
+            border-color: var(--gray-90);
+        }
+
+        body.dark-mode .btn-secondary {
+            border-color: var(--gray-30);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-90);
+            border-color: var(--gray-90);
+            color: var(--black);
+        }
+
+        body.dark-mode .btn-secondary:hover {
+            background: var(--gray-30);
+            border-color: var(--gray-30);
+            color: var(--white);
+        }
+
+        /* Modal - Квадратные окна */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--white);
+            border: 1px solid var(--black);
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        body.dark-mode .modal-content {
+            background: var(--black);
+            border-color: var(--white);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            color: var(--black);
+        }
+
+        body.dark-mode .modal-title {
+            color: var(--white);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-danger {
+            border-color: #d93025;
+            color: #d93025;
+        }
+
+        .btn-danger:hover {
+            background: #d93025;
+            color: var(--white);
+        }
+
+        /* Toast Notification - Квадратный */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--white);
+            border: 1px solid var(--black);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.15s ease;
+            z-index: 1001;
+        }
+
+        body.dark-mode .toast {
+            background: var(--black);
+            border-color: var(--white);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast-icon {
+            color: var(--black);
+        }
+
+        body.dark-mode .toast-icon {
+            color: var(--white);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray-40);
+            border: 1px solid var(--gray-90);
+            width: 100%;
+        }
+
+        body.dark-mode .empty-state {
+            color: var(--gray-50);
+            border-color: var(--gray-30);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 48px;
+                margin-bottom: 40px;
+            }
+            
+            .links-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 16px;
+            }
+            
+            .search-box {
+                padding: 16px 20px;
+                font-size: 14px;
+            }
+            
+            .add-link-form {
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .links-grid {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            }
+            
+            .form-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .modal-buttons {
+                flex-direction: column;
+            }
+        }
+
+        /* Убираем все скругления */
+        * {
+            border-radius: 0 !important;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-	hello world
+    <!-- Header -->
+    <!-- <div class="header"> -->
+    <!--     <button class="theme-toggle" id="themeToggle"> -->
+    <!--         <i class="fas fa-moon"></i> -->
+    <!--         <span>Dark Mode</span> -->
+    <!--     </button> -->
+    <!-- </div> -->
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="logo">LUMETAS</div>
+        
+        <!-- Search Box -->
+        <div class="search-container">
+            <input type="text" class="search-box" id="searchBox" autofocus placeholder="Search or enter website address">
+            <div class="search-icon">
+                <i class="fas fa-search"></i>
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="quick-links">
+            <div class="section-title">QUICK LINKS</div>
+            <div class="links-grid" id="linksGrid">
+                <!-- Links will be loaded here -->
+            </div>
+
+            <!-- Add Link Form -->
+            <div class="add-link-form">
+                <div class="form-title">
+                    <i class="fas fa-plus"></i>
+                    ADD NEW LINK
+                </div>
+                <form id="addLinkForm">
+                    <div class="form-group">
+                        <input type="text" class="form-input" id="linkName" placeholder="Website Name" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="url" class="form-input" id="linkUrl" placeholder="https://example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" class="form-input" id="linkIcon" placeholder="Icon class (e.g., fab fa-google)" value="fas fa-link">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn">
+                            <i class="fas fa-plus"></i>
+                            ADD LINK
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                            <i class="fas fa-times"></i>
+                            CLEAR
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Delete Confirmation -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <div class="modal-title">
+                <i class="fas fa-trash"></i>
+                DELETE LINK
+            </div>
+            <p>Are you sure you want to delete this link? This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash"></i>
+                    DELETE
+                </button>
+                <button class="btn btn-secondary" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                    CANCEL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-title">
+                <i class="fas fa-cog"></i>
+                SETTINGS
+            </div>
+            <div class="form-group">
+                <label style="display: block; margin-bottom: 12px; font-size: 14px;">DATA MANAGEMENT</label>
+                <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                    <button class="btn" onclick="exportData()" style="flex: 1;">
+                        <i class="fas fa-download"></i>
+                        EXPORT
+                    </button>
+                    <button class="btn" onclick="importData()" style="flex: 1;">
+                        <i class="fas fa-upload"></i>
+                        IMPORT
+                    </button>
+                </div>
+                <div>
+                    <button class="btn btn-danger" onclick="clearAllData()" style="width: 100%;">
+                        <i class="fas fa-trash-alt"></i>
+                        CLEAR ALL LINKS
+                    </button>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeSettings()">
+                    <i class="fas fa-times"></i>
+                    CLOSE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <div class="toast-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <span id="toastMessage">Link added</span>
+    </div>
+
+    <script>
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initTheme();
+            loadLinks();
+            setupEventListeners();
+            
+            if (getLinks().length === 0) {
+                loadDefaultLinks();
+            }
+        });
+
+        // Theme Management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                enableDarkMode();
+            }
+            
+            //document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        }
+
+        function toggleTheme() {
+            if (document.body.classList.contains('dark-mode')) {
+                disableDarkMode();
+            } else {
+                enableDarkMode();
+            }
+        }
+
+        function enableDarkMode() {
+            document.body.classList.add('dark-mode');
+            //document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun"></i><span>Light Mode</span>';
+            localStorage.setItem('theme', 'dark');
+        }
+
+        function disableDarkMode() {
+            document.body.classList.remove('dark-mode');
+            //document.getElementById('themeToggle').innerHTML = '<i class="fas fa-moon"></i><span>Dark Mode</span>';
+            localStorage.setItem('theme', 'light');
+        }
+
+        // LocalStorage Functions
+        function getLinks() {
+            const links = localStorage.getItem('quickLinks');
+            return links ? JSON.parse(links) : [];
+        }
+
+        function saveLinks(links) {
+            localStorage.setItem('quickLinks', JSON.stringify(links));
+        }
+
+        function loadLinks() {
+            const links = getLinks();
+            const linksGrid = document.getElementById('linksGrid');
+            
+            if (links.length === 0) {
+                linksGrid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-icon">
+                            <i class="fas fa-bookmark"></i>
+                        </div>
+                        <p>No quick links added yet</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            linksGrid.innerHTML = links.map((link, index) => `
+                <div class="link-item" onclick="openLink('${link.url}')">
+                    <div class="link-actions">
+                        <button class="action-btn" onclick="editLink(event, ${index})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="action-btn delete-btn" onclick="showDeleteModal(event, ${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="link-icon">
+                        <i class="${link.icon || 'fas fa-link'}"></i>
+                    </div>
+                    <div class="link-name">${link.name}</div>
+                    <div class="link-url">${link.url.replace(/^https?:\/\//, '')}</div>
+                </div>
+            `).join('');
+        }
+
+        function loadDefaultLinks() {
+            const defaultLinks = [
+                { name: 'Google', url: 'https://google.com', icon: 'fab fa-google' },
+                //{ name: 'YouTube', url: 'https://youtube.com', icon: 'fab fa-youtube' },
+                { name: 'GitHub', url: 'https://github.com/lumetas', icon: 'fab fa-github' },
+                //{ name: 'Wikipedia', url: 'https://wikipedia.org', icon: 'fab fa-wikipedia-w' },
+                //{ name: 'Gmail', url: 'https://gmail.com', icon: 'fas fa-envelope' },
+                //{ name: 'Drive', url: 'https://drive.google.com', icon: 'fab fa-google-drive' },
+                { name: 'Maps', url: 'https://yandex.ru/maps/', icon: 'fas fa-map' },
+                { name: 'Translate', url: 'https://translate.yandex.ru/', icon: 'fas fa-language' }
+            ];
+            saveLinks(defaultLinks);
+            loadLinks();
+        }
+
+        // Link Management
+        let linkToDelete = null;
+
+        function openLink(url) {
+            window.open(url, '_blank');
+        }
+
+        function showDeleteModal(event, index) {
+            event.stopPropagation();
+            linkToDelete = index;
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+
+        function confirmDelete() {
+            if (linkToDelete !== null) {
+                const links = getLinks();
+                const linkName = links[linkToDelete].name;
+                links.splice(linkToDelete, 1);
+                saveLinks(links);
+                loadLinks();
+                showToast(`Deleted: ${linkName}`);
+                closeModal();
+            }
+        }
+
+        function editLink(event, index) {
+            event.stopPropagation();
+            const links = getLinks();
+            const link = links[index];
+            
+            document.getElementById('linkName').value = link.name;
+            document.getElementById('linkUrl').value = link.url;
+            document.getElementById('linkIcon').value = link.icon;
+            
+            links.splice(index, 1);
+            saveLinks(links);
+            loadLinks();
+            
+            showToast('Edit link details below');
+        }
+
+        // Form Handling
+        function setupEventListeners() {
+            document.getElementById('addLinkForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const name = document.getElementById('linkName').value.trim();
+                let url = document.getElementById('linkUrl').value.trim();
+                const icon = document.getElementById('linkIcon').value.trim();
+                
+                if (!name || !url) {
+                    showToast('Please fill all fields');
+                    return;
+                }
+                
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                
+                const links = getLinks();
+                links.push({ 
+                    name, 
+                    url, 
+                    icon: icon || 'fas fa-link' 
+                });
+                saveLinks(links);
+                loadLinks();
+                
+                this.reset();
+                document.getElementById('linkIcon').value = 'fas fa-link';
+                
+                showToast(`Added: ${name}`);
+            });
+            
+            // Search box handling
+            const searchBox = document.getElementById('searchBox');
+            searchBox.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    let query = this.value.trim();
+                    if (!query) return;
+                    
+                    if (query.includes('.') && !query.includes(' ')) {
+                        if (!query.startsWith('http://') && !query.startsWith('https://')) {
+                            query = 'https://' + query;
+                        }
+                        window.location.href = query;
+                    } else {
+                        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+                    }
+                    
+                    this.value = '';
+                }
+            });
+            
+            // Settings button in header
+            //const themeToggle = document.getElementById('themeToggle');
+            //themeToggle.addEventListener('dblclick', function(e) {
+//                e.preventDefault();
+ //               showSettings();
+  //          });
+        }
+
+        function resetForm() {
+            document.getElementById('addLinkForm').reset();
+            document.getElementById('linkIcon').value = 'fas fa-link';
+        }
+
+        // Settings Functions
+        function showSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        function exportData() {
+            const links = getLinks();
+            const dataStr = JSON.stringify(links, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', 'quicklinks.json');
+            linkElement.click();
+            
+            showToast('Data exported');
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = e => {
+                    try {
+                        const importedLinks = JSON.parse(e.target.result);
+                        if (Array.isArray(importedLinks)) {
+                            saveLinks(importedLinks);
+                            loadLinks();
+                            showToast('Data imported');
+                        } else {
+                            showToast('Invalid file format');
+                        }
+                    } catch (error) {
+                        showToast('Error reading file');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+
+        function clearAllData() {
+            if (confirm('Delete all links?')) {
+                localStorage.removeItem('quickLinks');
+                loadDefaultLinks();
+                showToast('Reset to defaults');
+                closeSettings();
+            }
+        }
+
+        // Modal Functions
+        function closeModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            linkToDelete = null;
+        }
+
+        // Toast Notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // Close modals on outside click
+        window.onclick = function(event) {
+            const modals = document.getElementsByClassName('modal');
+            for (let modal of modals) {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                    linkToDelete = null;
+                }
+            }
+        }
+    </script>
 </body>
 </html>
